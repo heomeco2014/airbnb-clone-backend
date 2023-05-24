@@ -10,6 +10,9 @@ const app = express();
 const imageDownloader = require('image-downloader');
 const bcryptSalt = bcrypt.genSaltSync(10);
 const jsonWebTokenSecret = 'nhatminhdevratlachamchihocreactjs1412';
+const multer = require('multer');
+
+const fs = require('fs');
 app.use(express.json());
 app.use(cookieParser());
 app.use(
@@ -85,5 +88,28 @@ app.post('/upload-by-link', async (req, res) => {
 		dest: __dirname + '/uploads/' + newName,
 	});
 	res.json(newName);
+});
+
+// const storage = multer.diskStorage({
+// 	destination: (req, file, callBack) => {
+// 		callBack(null, 'upload-local');
+// 	},
+// 	filename: (req, file, callBack) => {
+// 		callBack(null, file.originalname + '-' + Date.now());
+// 	},
+// });
+let uploadMiddleware = multer({dest: 'uploads/'});
+app.post('/upload-local', uploadMiddleware.array('file', 100), (req, res) => {
+	const uploadedFiles = [];
+	for (let i = 0; i < req.files.length; i++) {
+		const {path, originalname} = req.files[i];
+		let ext = originalname.split('.');
+		ext = ext[ext.length - 1];
+		const newPath = path + '.' + ext;
+		fs.renameSync(path, newPath, err => {});
+		uploadedFiles.push(newPath.replace('uploads/', ''));
+	}
+
+	res.json(uploadedFiles);
 });
 app.listen(4000);
