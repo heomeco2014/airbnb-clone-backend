@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jsonWebToken = require('jsonwebtoken');
 const User = require('./models/User.js');
+const Place = require('./models/Place');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const app = express();
@@ -90,14 +91,6 @@ app.post('/upload-by-link', async (req, res) => {
 	res.json(newName);
 });
 
-// const storage = multer.diskStorage({
-// 	destination: (req, file, callBack) => {
-// 		callBack(null, 'upload-local');
-// 	},
-// 	filename: (req, file, callBack) => {
-// 		callBack(null, file.originalname + '-' + Date.now());
-// 	},
-// });
 let uploadMiddleware = multer({dest: 'uploads/'});
 app.post('/upload-local', uploadMiddleware.array('file', 100), (req, res) => {
 	const uploadedFiles = [];
@@ -111,5 +104,36 @@ app.post('/upload-local', uploadMiddleware.array('file', 100), (req, res) => {
 	}
 
 	res.json(uploadedFiles);
+});
+
+app.post('/places', (req, res) => {
+	const {title, address, addedPhotos, description, perks, extraInfor, checkIn, checkOut, maxGuests} = req.body;
+	console.log(req.body);
+	const {token} = req.cookies;
+	jsonWebToken.verify(token, jsonWebTokenSecret, {}, async (err, userData) => {
+		if (err) throw err;
+		const placeDoc = await Place.create({
+			owner: userData.id,
+			title: title,
+			address: address,
+			photos: addedPhotos,
+			description: description,
+			perks: perks,
+			extraInfor: extraInfor,
+			checkIn: checkIn,
+			checkOut: checkOut,
+			maxGuests: maxGuests,
+		});
+		res.json(placeDoc);
+	});
+});
+
+app.get('/places', (req, res) => {
+	const {token} = req.cookies;
+	jsonWebToken.verify(token, jsonWebTokenSecret, {}, async (err, userData) => {
+		if (err) throw err;
+		const placeDoc = await Place.find({owner: userData.id});
+		res.json(placeDoc);
+	});
 });
 app.listen(4000);
