@@ -4,7 +4,8 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jsonWebToken = require('jsonwebtoken');
 const User = require('./models/User.js');
-const Place = require('./models/Place');
+const Place = require('./models/Place.js');
+const Booking = require('./models/Booking.js');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const app = express();
@@ -12,7 +13,6 @@ const imageDownloader = require('image-downloader');
 const bcryptSalt = bcrypt.genSaltSync(10);
 const jsonWebTokenSecret = 'nhatminhdevratlachamchihocreactjs1412';
 const multer = require('multer');
-const Booking = require('./models/Booking');
 const fs = require('fs');
 app.use(express.json());
 app.use(cookieParser());
@@ -29,7 +29,14 @@ mongoose.connect(process.env.MONGO_URI);
 app.get('/test', (req, res) => {
 	res.json('test ok');
 });
-
+function getUserDataFromToken(req) {
+	return new Promise((resolve, reject) => {
+		jsonWebToken.verify(req.cookies.token, jsonWebTokenSecret, {}, async (err, userData) => {
+			if (err) reject(err);
+			resolve(userData);
+		});
+	});
+}
 app.post('/register', async (req, res) => {
 	const {name, email, password, retypePassword} = req.body;
 
@@ -181,9 +188,17 @@ app.delete('/places/:id', async (req, res) => {
 		res.json(placeDoc);
 	});
 });
-
+app.delete('/account/bookings/:id', async (req, res) => {
+	const {id} = req.params;
+	const {token} = req.cookies;
+	jsonWebToken.verify(token, jsonWebTokenSecret, {}, async (err, userData) => {
+		if (err) throw err;
+		const placeDoc = await Booking.findByIdAndDelete({_id: id, owner: userData.id});
+		res.json(placeDoc);
+	});
+});
 app.post('/bookings', async (req, res) => {
-	const userData = await getUserDataFromToken(req.cookies.token);
+	const userData = await getUserDataFromToken(req);
 	const {place, checkIn, checkOut, numberOfGuests, name, phoneNumber, price} = req.body;
 	Booking.create({place, checkIn, checkOut, numberOfGuests, name, phoneNumber, user: userData.id, price})
 		.then(doc => {
@@ -194,17 +209,8 @@ app.post('/bookings', async (req, res) => {
 		});
 });
 
-function getUserDataFromToken(token) {
-	return new Promise((resolve, reject) => {
-		jsonWebToken.verify(token, jsonWebTokenSecret, {}, async (err, userData) => {
-			if (err) reject(err);
-			resolve(userData);
-		});
-	});
-}
 app.get('/bookings', async (req, res) => {
-	const {token} = req.cookies;
-	const userData = await getUserDataFromToken(token);
+	const userData = await getUserDataFromToken(req);
 	const bookings = await Booking.find({user: userData.id}).populate('place');
 	res.json(bookings);
 });
